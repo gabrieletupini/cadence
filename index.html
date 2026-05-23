@@ -150,6 +150,28 @@
   </div>
 </div>
 
+<!-- ===== Mini player ===== -->
+<div id="mini-player" class="mini-player hidden">
+  <div class="mp-info">
+    <div class="mp-title" id="mp-title"></div>
+    <div class="mp-context" id="mp-context"></div>
+  </div>
+
+  <div class="mp-progress-row">
+    <span class="mp-time" id="mp-time-cur">0:00</span>
+    <input type="range" class="mp-seek" id="mp-seek" min="0" max="1000" value="0" step="1">
+    <span class="mp-time" id="mp-time-dur">0:00</span>
+  </div>
+
+  <div class="mp-controls">
+    <button class="mp-btn" id="mp-prev" title="Previous">⏮</button>
+    <button class="mp-btn mp-play-btn" id="mp-play" title="Play / Pause">▶</button>
+    <button class="mp-btn" id="mp-next" title="Next">⏭</button>
+    <button class="mp-btn mp-toggle" id="mp-autoplay" title="Autoplay queue">↻</button>
+    <button class="mp-btn" id="mp-close" title="Close">×</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 

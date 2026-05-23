@@ -307,7 +307,7 @@ a:hover { color: var(--ink); }
 
 .song-card-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 6px;
@@ -319,6 +319,30 @@ a:hover { color: var(--ink); }
   color: var(--ink);
   letter-spacing: 0.01em;
   line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+.song-card-play {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--amber-line);
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding-left: 2px;
+}
+.song-card-play:hover { background: var(--amber); color: var(--bg); }
+.song-card-play.playing {
+  background: var(--amber);
+  color: var(--bg);
+  padding-left: 0;
 }
 .song-card-audio-mark {
   color: var(--amber);
@@ -739,6 +763,149 @@ a:hover { color: var(--ink); }
 }
 .song-view-text strong { font-weight: 700; }
 .song-view-text em { font-style: italic; }
+
+/* ===== Mini player ===== */
+.mini-player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--amber-line);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  padding: 12px 18px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.3fr) 2fr auto;
+  align-items: center;
+  gap: 18px;
+  z-index: 90;
+  animation: slideFromBottom 0.25s ease;
+}
+@keyframes slideFromBottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+body.player-open { padding-bottom: 130px; }
+
+.mp-info { min-width: 0; }
+.mp-title {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-context {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.mp-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mp-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  min-width: 36px;
+  text-align: center;
+}
+.mp-seek {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.mp-seek::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(to right, var(--amber) 0%, var(--amber) var(--pct, 0%), var(--surface-3) var(--pct, 0%));
+  border-radius: 2px;
+}
+.mp-seek::-moz-range-track {
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 2px;
+}
+.mp-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--amber);
+  border-radius: 50%;
+  margin-top: -4px;
+  cursor: pointer;
+}
+.mp-seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--amber);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.mp-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mp-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-family: var(--body);
+}
+.mp-btn:hover { background: var(--amber-soft); color: var(--ink); }
+.mp-play-btn {
+  background: var(--amber);
+  color: var(--bg);
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+  padding-left: 2px;
+}
+.mp-play-btn:hover { background: var(--amber-dark); color: var(--bg); }
+.mp-play-btn.playing { padding-left: 0; }
+.mp-toggle {
+  font-size: 14px;
+  opacity: 0.45;
+}
+.mp-toggle.active {
+  opacity: 1;
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+@media (max-width: 720px) {
+  .mini-player {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 14px 12px;
+  }
+  .mp-controls { justify-content: center; }
+  body.player-open { padding-bottom: 180px; }
+}
 
 /* ===== Toast ===== */
 .toast {

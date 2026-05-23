@@ -12,6 +12,16 @@ let pendingAudio = null;   // { url, path, name, size, contentType } when staged
 let pendingAudioFile = null; // local File before upload (set when user picks/drops)
 let originalAudioPath = null; // path to delete from Storage when audio is replaced/removed
 
+// Mini-player state. The queue is a snapshot of song IDs taken at play time
+// from the currently visible group, so the album order is whatever you see.
+const player = {
+  audio: new Audio(),
+  queue: [],
+  currentIdx: -1,
+  autoplay: true,
+};
+player.audio.preload = 'metadata';
+
 // ===== DOM =====
 const $ = (id) => document.getElementById(id);
 
@@ -68,6 +78,7 @@ function startApp() {
   setupSearch();
   setupSongModal();
   setupViewModal();
+  setupMiniPlayer();
   setupModalDismiss();
   setupKeyboard();
 
@@ -171,10 +182,14 @@ function buildSongCard(song) {
     .map(t => `<span class="song-card-tag">${escapeHtml(t)}</span>`)
     .join('');
 
+  const hasAudio = !!(song.audio && song.audio.url);
+  const isCurrent = player.queue[player.currentIdx] === song.id;
+  const isPlaying = isCurrent && !player.audio.paused;
+
   card.innerHTML = `
     <div class="song-card-head">
       <h3 class="song-card-title">${escapeHtml(song.title || 'Untitled')}</h3>
-      ${song.audio ? '<span class="song-card-audio-mark" title="Has audio">♪</span>' : ''}
+      ${hasAudio ? `<button class="song-card-play${isPlaying ? ' playing' : ''}" data-song-id="${song.id}" title="${isPlaying ? 'Pause' : 'Play'}">${isPlaying ? '❚❚' : '▶'}</button>` : ''}
     </div>
     <p class="song-card-snippet">${escapeHtml(snippet)}${plain.length > 220 ? '…' : ''}</p>
     <div class="song-card-foot">
@@ -185,6 +200,21 @@ function buildSongCard(song) {
       <span class="song-card-date">${dateStr}</span>
     </div>
   `;
+
+  if (hasAudio) {
+    const playBtn = card.querySelector('.song-card-play');
+    playBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (player.queue[player.currentIdx] === song.id) {
+        // Same song — toggle play/pause
+        togglePlay();
+      } else {
+        // Different song — start it (and build queue from current visible group)
+        playSong(song.id);
+      }
+    });
+  }
+
   card.addEventListener('click', () => openView(song));
   return card;
 }
@@ -503,6 +533,177 @@ function setupKeyboard() {
       document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
     }
   });
+}
+
+// ===== Mini player =====
+function setupMiniPlayer() {
+  // Sync UI on every audio event
+  player.audio.addEventListener('timeupdate', updatePlayerProgress);
+  player.audio.addEventListener('loadedmetadata', updatePlayerProgress);
+  player.audio.addEventListener('play', () => updatePlayUI(true));
+  player.audio.addEventListener('pause', () => updatePlayUI(false));
+  player.audio.addEventListener('ended', onTrackEnded);
+  player.audio.addEventListener('error', () => {
+    showToast('Playback error.', 'error');
+  });
+
+  $('mp-play').addEventListener('click', togglePlay);
+  $('mp-prev').addEventListener('click', () => playOffset(-1));
+  $('mp-next').addEventListener('click', () => playOffset(+1));
+  $('mp-autoplay').addEventListener('click', toggleAutoplay);
+  $('mp-close').addEventListener('click', closePlayer);
+
+  // Default autoplay on, reflect in UI
+  $('mp-autoplay').classList.toggle('active', player.autoplay);
+
+  // Seek via slider
+  const seek = $('mp-seek');
+  seek.addEventListener('input', () => {
+    if (player.audio.duration && isFinite(player.audio.duration)) {
+      const pct = parseInt(seek.value, 10) / 1000;
+      player.audio.currentTime = pct * player.audio.duration;
+    }
+  });
+}
+
+function buildQueueFrom(songId) {
+  // If grouping is active and the song belongs to a group, queue = same group.
+  // Otherwise queue = the full filtered list. Only songs with audio.
+  const visible = filteredSongs().filter(s => s.audio && s.audio.url);
+  const song = songs.find(s => s.id === songId);
+  if (!song) return [];
+  if (groupBy !== 'none' && song[groupBy]) {
+    return visible.filter(s => s[groupBy] === song[groupBy]).map(s => s.id);
+  }
+  return visible.map(s => s.id);
+}
+
+function playSong(songId) {
+  player.queue = buildQueueFrom(songId);
+  const idx = player.queue.indexOf(songId);
+  if (idx === -1) {
+    // Song wasn't in the visible queue (e.g. no audio match) — just play it alone
+    player.queue = [songId];
+    player.currentIdx = 0;
+  } else {
+    player.currentIdx = idx;
+  }
+  loadCurrent(true);
+  showPlayer();
+}
+
+function loadCurrent(autoStart = false) {
+  const id = player.queue[player.currentIdx];
+  const song = songs.find(s => s.id === id);
+  if (!song || !song.audio || !song.audio.url) return;
+  player.audio.src = song.audio.url;
+  updateContextUI(song);
+  if (autoStart) {
+    player.audio.play().catch(err => {
+      console.error('play() failed', err);
+      showToast('Cannot play: ' + (err.message || err), 'error');
+    });
+  }
+  // Re-render cards so the playing one shows ❚❚ and the previous one resets
+  renderSongs();
+}
+
+function updateContextUI(song) {
+  $('mp-title').textContent = song.title || 'Untitled';
+  let ctx;
+  if (groupBy !== 'none' && song[groupBy]) {
+    ctx = `${groupBy}: ${song[groupBy]} · ${player.currentIdx + 1} / ${player.queue.length}`;
+  } else if (player.queue.length > 1) {
+    ctx = `track ${player.currentIdx + 1} / ${player.queue.length}`;
+  } else {
+    ctx = song.album || song.genre || song.mood || 'single track';
+  }
+  $('mp-context').textContent = ctx;
+}
+
+function togglePlay() {
+  if (player.queue.length === 0) return;
+  if (player.audio.paused) {
+    player.audio.play().catch(err => console.error(err));
+  } else {
+    player.audio.pause();
+  }
+}
+
+function playOffset(delta) {
+  if (player.queue.length === 0) return;
+  player.currentIdx = (player.currentIdx + delta + player.queue.length) % player.queue.length;
+  loadCurrent(true);
+}
+
+function onTrackEnded() {
+  if (player.autoplay && player.queue.length > 1) {
+    // Auto-advance, but stop at the end of the queue (don't loop)
+    if (player.currentIdx < player.queue.length - 1) {
+      playOffset(+1);
+    } else {
+      updatePlayUI(false);
+    }
+  } else {
+    updatePlayUI(false);
+  }
+}
+
+function toggleAutoplay() {
+  player.autoplay = !player.autoplay;
+  $('mp-autoplay').classList.toggle('active', player.autoplay);
+  showToast(player.autoplay ? 'Autoplay on' : 'Autoplay off');
+}
+
+function closePlayer() {
+  player.audio.pause();
+  player.audio.removeAttribute('src');
+  player.audio.load();
+  player.queue = [];
+  player.currentIdx = -1;
+  $('mini-player').classList.add('hidden');
+  document.body.classList.remove('player-open');
+  renderSongs();
+}
+
+function showPlayer() {
+  $('mini-player').classList.remove('hidden');
+  document.body.classList.add('player-open');
+}
+
+function updatePlayerProgress() {
+  const d = player.audio.duration;
+  const t = player.audio.currentTime;
+  if (!d || !isFinite(d)) {
+    $('mp-time-cur').textContent = '0:00';
+    $('mp-time-dur').textContent = '0:00';
+    return;
+  }
+  const pct = (t / d) * 1000;
+  const seek = $('mp-seek');
+  seek.value = pct;
+  seek.style.setProperty('--pct', (pct / 10) + '%');
+  $('mp-time-cur').textContent = formatTime(t);
+  $('mp-time-dur').textContent = formatTime(d);
+}
+
+function updatePlayUI(playing) {
+  const btn = $('mp-play');
+  btn.textContent = playing ? '❚❚' : '▶';
+  btn.classList.toggle('playing', playing);
+  const currentId = player.queue[player.currentIdx];
+  document.querySelectorAll('.song-card-play').forEach(b => {
+    const isThis = b.dataset.songId === currentId;
+    b.classList.toggle('playing', isThis && playing);
+    b.textContent = (isThis && playing) ? '❚❚' : '▶';
+  });
+}
+
+function formatTime(s) {
+  if (!s || !isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
 // ===== Utilities =====
