@@ -93,26 +93,18 @@
         <label class="flex-1">Tags <span class="hint">(comma-separated)</span><input type="text" id="song-tags" placeholder="capo3, demo, sketch"></label>
       </div>
 
-      <label>Audio sample
-        <div id="audio-drop" class="upload-area">
-          <input type="file" id="audio-file" accept="audio/*" hidden>
-          <div class="upload-prompt">
-            <span class="upload-icon">♪</span>
-            <span>Drop an audio file or <strong>click to browse</strong></span>
-            <span class="upload-hint">m4a, mp3, wav, ogg, opus — up to ~20 MB</span>
-          </div>
+      <label>Audio
+        <div class="audio-input-row">
+          <input type="text" id="song-audio-url" placeholder="filename in /audio/ or full URL">
+          <button type="button" id="browse-audio" class="btn-secondary btn-sm" title="List files in /audio/">📁 Browse repo</button>
         </div>
+        <span class="hint">Drop your audio files into the repo's <code>/audio/</code> folder and commit. Then click Browse to pick one. External URLs (Dropbox, etc.) also work.</span>
+        <div id="audio-browse-list" class="audio-browse-list hidden"></div>
         <div id="audio-preview" class="audio-preview hidden">
           <audio id="audio-player" controls preload="metadata"></audio>
           <div class="audio-meta">
             <span id="audio-name"></span>
-            <span id="audio-size"></span>
           </div>
-          <div id="audio-progress" class="audio-progress hidden">
-            <div id="audio-progress-bar" class="audio-progress-bar"></div>
-            <span id="audio-progress-pct">0%</span>
-          </div>
-          <button type="button" id="audio-remove" class="btn-secondary btn-sm">Remove audio</button>
         </div>
       </label>
 

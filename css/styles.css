@@ -628,7 +628,79 @@ a:hover { color: var(--ink); }
 .btn-danger:hover { background: rgba(197, 99, 77, 0.12); }
 .btn-sm { font-size: 12px; padding: 6px 12px; }
 
-/* ===== Audio upload ===== */
+/* ===== Audio URL + repo browse ===== */
+.audio-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.audio-input-row input { flex: 1; }
+.audio-input-row .btn-secondary { white-space: nowrap; }
+
+.audio-browse-list {
+  margin-top: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 240px;
+  overflow-y: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.browse-loading,
+.browse-empty {
+  padding: 14px 16px;
+  font-family: var(--display);
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.browse-empty.error { color: var(--warm-red); }
+.browse-empty button { margin-top: 8px; }
+.browse-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.browse-link {
+  background: transparent;
+  border: none;
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.browse-link:hover { color: var(--ink); }
+.browse-items {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+.browse-items li {
+  padding: 8px 14px;
+  font-family: var(--body);
+  font-size: 13.5px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.browse-items li:hover { background: var(--amber-soft); color: var(--amber); }
+
+/* (Legacy upload-area styles — kept harmless in case stale HTML lingers) */
 .upload-area {
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);

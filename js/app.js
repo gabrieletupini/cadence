@@ -1,16 +1,15 @@
 import {
   initFirebase, onSyncStatus, onAuthReady, loginWithGoogle,
   subscribeToSongs, createSong, updateSong, deleteSong,
-  uploadAudio, removeAudio,
+  listRepoAudio,
 } from './firebase.js';
 
 // ===== State =====
 let songs = [];
 let groupBy = 'none';
 let searchQuery = '';
-let pendingAudio = null;   // { url, path, name, size, contentType } when staged in modal
-let pendingAudioFile = null; // local File before upload (set when user picks/drops)
-let originalAudioPath = null; // path to delete from Storage when audio is replaced/removed
+let pendingAudio = null;   // { url, name } resolved from the URL/filename field, or null
+let repoAudioCache = null; // [{ name, downloadUrl }] from GitHub API, lazily loaded
 
 // Mini-player state. The queue is a snapshot of song IDs taken at play time
 // from the currently visible group, so the album order is whatever you see.
@@ -266,33 +265,16 @@ function setupSongModal() {
   editor.addEventListener('keyup', updateToolbarState);
   editor.addEventListener('mouseup', updateToolbarState);
 
-  // Audio drop area
-  const drop = $('audio-drop');
-  const fileInput = $('audio-file');
-  drop.addEventListener('click', () => fileInput.click());
-  drop.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    drop.classList.add('drag-over');
-  });
-  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
-  drop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    drop.classList.remove('drag-over');
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) handleAudioFile(file);
-  });
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (file) handleAudioFile(file);
-    fileInput.value = '';
-  });
-
-  $('audio-remove').addEventListener('click', () => {
-    // Mark existing audio for deletion on save; clear staged file
-    pendingAudio = null;
-    pendingAudioFile = null;
+  // Audio URL input — on change, update pending audio + preview
+  const urlInput = $('song-audio-url');
+  urlInput.addEventListener('input', () => {
+    const raw = urlInput.value.trim();
+    pendingAudio = raw ? resolveAudioRef(raw) : null;
     renderAudioPreview();
   });
+
+  // Browse files in the repo's /audio/ folder
+  $('browse-audio').addEventListener('click', openRepoAudioBrowser);
 
   // Save
   $('song-form').addEventListener('submit', async (e) => {
@@ -311,26 +293,13 @@ function setupSongModal() {
     saveBtn.textContent = 'Saving…';
 
     try {
-      // Upload audio first if there's a new file staged
-      let audio = pendingAudio;
-      if (pendingAudioFile) {
-        showProgress(true);
-        audio = await uploadAudio(pendingAudioFile, (pct) => updateProgress(pct));
-        showProgress(false);
-      }
-
-      // Delete old audio from Storage if it was replaced or removed
-      if (originalAudioPath && (!audio || audio.path !== originalAudioPath)) {
-        await removeAudio(originalAudioPath);
-      }
-
       const data = {
         title,
         text,
         genre, album, mood,
         date: dateRaw ? new Date(dateRaw) : new Date(),
         tags: tagsRaw.split(',').map(t => t.trim()).filter(Boolean),
-        audio: audio || null,
+        audio: pendingAudio || null,
       };
 
       if (id) {
@@ -347,7 +316,6 @@ function setupSongModal() {
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save';
-      showProgress(false);
     }
   });
 
@@ -355,10 +323,6 @@ function setupSongModal() {
     const id = $('song-id').value;
     if (!id) return;
     if (!confirm('Delete this song?')) return;
-    const song = songs.find(s => s.id === id);
-    if (song && song.audio && song.audio.path) {
-      await removeAudio(song.audio.path);
-    }
     await deleteSong(id);
     closeModal('song-modal');
     closeModal('view-modal');
@@ -374,53 +338,86 @@ function updateToolbarState() {
   });
 }
 
-function handleAudioFile(file) {
-  if (!file.type.startsWith('audio/')) {
-    showToast('That doesn\'t look like an audio file.', 'error');
-    return;
+// Resolve a user-typed reference (either a bare filename like "demo.mp3" or a
+// full URL) into the { url, name } shape we persist on the song doc. Relative
+// filenames are anchored at the deployed site's /audio/ folder.
+function resolveAudioRef(raw) {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    const name = decodeURIComponent(trimmed.split('/').pop() || trimmed);
+    return { url: trimmed, name };
   }
-  const MAX = 25 * 1024 * 1024; // 25 MB safety cap
-  if (file.size > MAX) {
-    showToast(`File too large (${formatSize(file.size)}). Max ~25 MB.`, 'error');
-    return;
-  }
-  pendingAudioFile = file;
-  // Show local preview immediately (before upload)
-  pendingAudio = {
-    url: URL.createObjectURL(file),
-    path: null,
-    name: file.name,
-    size: file.size,
-    contentType: file.type,
-    _local: true,
-  };
-  renderAudioPreview();
+  const filename = trimmed.replace(/^\/?audio\//, '');
+  return { url: `audio/${filename}`, name: filename };
 }
 
 function renderAudioPreview() {
   const preview = $('audio-preview');
-  const drop = $('audio-drop');
-  if (!pendingAudio) {
+  if (!pendingAudio || !pendingAudio.url) {
     preview.classList.add('hidden');
-    drop.classList.remove('hidden');
+    const audio = $('audio-player');
+    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
     return;
   }
   preview.classList.remove('hidden');
-  drop.classList.add('hidden');
   $('audio-player').src = pendingAudio.url;
-  $('audio-name').textContent = pendingAudio.name || 'Audio sample';
-  $('audio-size').textContent = pendingAudio.size ? formatSize(pendingAudio.size) : '';
+  $('audio-name').textContent = pendingAudio.name || pendingAudio.url;
 }
 
-function showProgress(show) {
-  const p = $('audio-progress');
-  if (show) p.classList.remove('hidden');
-  else { p.classList.add('hidden'); updateProgress(0); }
+// ===== Browse repo /audio/ folder =====
+async function openRepoAudioBrowser() {
+  const listEl = $('audio-browse-list');
+  if (listEl.classList.contains('open')) { closeRepoAudioBrowser(); return; }
+
+  listEl.classList.remove('hidden');
+  listEl.classList.add('open');
+  listEl.innerHTML = '<div class="browse-loading">Loading /audio/ from GitHub…</div>';
+
+  try {
+    if (!repoAudioCache) repoAudioCache = await listRepoAudio();
+    if (repoAudioCache.length === 0) {
+      listEl.innerHTML = `
+        <div class="browse-empty">
+          /audio/ is empty. Drop files into the folder in the repo, commit, push.
+          <button type="button" id="browse-refresh" class="btn-secondary btn-sm">Refresh</button>
+        </div>
+      `;
+    } else {
+      listEl.innerHTML = `
+        <div class="browse-head">
+          <span>${repoAudioCache.length} file${repoAudioCache.length === 1 ? '' : 's'} in /audio/</span>
+          <button type="button" id="browse-refresh" class="browse-link">Refresh</button>
+        </div>
+        <ul class="browse-items">
+          ${repoAudioCache.map(f => `<li data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</li>`).join('')}
+        </ul>
+      `;
+      listEl.querySelectorAll('.browse-items li').forEach(li => {
+        li.addEventListener('click', () => {
+          const name = li.dataset.name;
+          $('song-audio-url').value = name;
+          $('song-audio-url').dispatchEvent(new Event('input'));
+          closeRepoAudioBrowser();
+        });
+      });
+    }
+    const refresh = $('browse-refresh');
+    if (refresh) refresh.addEventListener('click', async (e) => {
+      e.preventDefault();
+      repoAudioCache = null;
+      await openRepoAudioBrowser();
+      if (!listEl.classList.contains('open')) await openRepoAudioBrowser();
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div class="browse-empty error">Couldn't read /audio/: ${escapeHtml(err.message || err)}</div>`;
+  }
 }
-function updateProgress(pct) {
-  const v = Math.round(pct * 100);
-  $('audio-progress-bar').style.width = v + '%';
-  $('audio-progress-pct').textContent = v + '%';
+
+function closeRepoAudioBrowser() {
+  const listEl = $('audio-browse-list');
+  listEl.classList.add('hidden');
+  listEl.classList.remove('open');
 }
 
 function openSongModal(song) {
@@ -443,16 +440,19 @@ function openSongModal(song) {
     dateInput.value = todayIso();
   }
 
-  // Audio state
-  pendingAudioFile = null;
-  if (song && song.audio) {
-    pendingAudio = { ...song.audio };
-    originalAudioPath = song.audio.path || null;
+  // Audio state — populate the URL field from the song's saved audio
+  if (song && song.audio && song.audio.url) {
+    pendingAudio = { url: song.audio.url, name: song.audio.name || song.audio.url };
+    // If the URL is the repo-relative form, show just the filename for editing
+    $('song-audio-url').value = song.audio.url.startsWith('audio/')
+      ? song.audio.url.slice('audio/'.length)
+      : song.audio.url;
   } else {
     pendingAudio = null;
-    originalAudioPath = null;
+    $('song-audio-url').value = '';
   }
   renderAudioPreview();
+  closeRepoAudioBrowser();
 
   $('song-delete-btn').classList.toggle('hidden', !song);
   openModal('song-modal');
@@ -735,13 +735,6 @@ function stripHtml(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
   return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
-}
-
-function formatSize(bytes) {
-  if (!bytes) return '';
-  const kb = bytes / 1024;
-  if (kb < 1024) return Math.round(kb) + ' KB';
-  return (kb / 1024).toFixed(1) + ' MB';
 }
 
 let toastTimer = null;
