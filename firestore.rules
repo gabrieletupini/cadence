@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Cadence — Firestore security rules
+// Solo gabritupini@gmail.com e gabritupini3@gmail.com possono leggere/scrivere.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthorized() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          'gabritupini@gmail.com',
+          'gabritupini3@gmail.com'
+        ];
+    }
+
+    match /songs/{songId} {
+      allow read, write: if isAuthorized();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

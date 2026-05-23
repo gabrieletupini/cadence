@@ -9,9 +9,9 @@ import {
 
 const ALLOWED_EMAILS = ['gabritupini@gmail.com', 'gabritupini3@gmail.com'];
 
-// Songs live alongside the other journaling apps in the routiner-db project,
-// in a dedicated collection.
-const COL_SONGS = 'cadence_songs';
+// Cadence has its own dedicated Firebase project (cadence-db) so the
+// collection name no longer needs the cadence_ prefix.
+const COL_SONGS = 'songs';
 
 // Audio files are served from the GitHub repo's /audio/ folder (no Firebase
 // Storage). We expose the repo here so the modal can fetch the file listing
@@ -24,12 +24,12 @@ let syncStatusCallback = null;
 
 export function initFirebase() {
   const app = initializeApp({
-    apiKey: "AIzaSyCaOEjgmmCbtl00fYif89iVCO5CewiSoVQ",
-    authDomain: "routiner-db.firebaseapp.com",
-    projectId: "routiner-db",
-    storageBucket: "routiner-db.firebasestorage.app",
-    messagingSenderId: "815158931879",
-    appId: "1:815158931879:web:8c5cc7ccfed90210068682",
+    apiKey: "AIzaSyBQ2eNlMQZsPFlJRvRJBjRmYUYZdOzA5cY",
+    authDomain: "cadence-db.firebaseapp.com",
+    projectId: "cadence-db",
+    storageBucket: "cadence-db.firebasestorage.app",
+    messagingSenderId: "1083457776149",
+    appId: "1:1083457776149:web:22307b5864c1c0f343fc1c",
   });
   db = getFirestore(app);
   auth = getAuth(app);
