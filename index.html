@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadence — A Songwriting Journal</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ===== Login ===== -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="ornament">♪</div>
+    <h1 class="brand-title">Cadence</h1>
+    <p class="brand-subtitle">A songwriting journal</p>
+    <div class="ornament-line"></div>
+    <button id="google-login-btn" class="btn-google">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+    <p id="login-error" class="login-error"></p>
+  </div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="app" class="app hidden">
+
+  <header class="header">
+    <div class="header-left">
+      <h1 class="header-title">Cadence</h1>
+      <p class="header-subtitle">A songwriting journal</p>
+    </div>
+    <div class="header-right">
+      <span id="sync-status" class="sync-status" title="Sync"></span>
+      <button id="open-new-btn" class="btn-primary">+ New song</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Search title, lyrics, tags…">
+    <div class="group-toggle" id="group-toggle">
+      <span class="group-label">Group by</span>
+      <button class="active" data-group="none">None</button>
+      <button data-group="genre">Genre</button>
+      <button data-group="album">Album</button>
+      <button data-group="mood">Mood</button>
+    </div>
+  </div>
+
+  <div id="empty-state" class="empty-state hidden">
+    <p>No songs yet. Start with the first idea, even a single line.</p>
+  </div>
+
+  <main id="songs" class="songs"></main>
+
+</div>
+
+<!-- ===== Modal: edit song ===== -->
+<div id="song-modal" class="modal" data-modal="song-modal">
+  <div class="modal-content modal-large">
+    <button class="modal-close" data-close>×</button>
+    <h3 id="song-modal-title">New song</h3>
+
+    <form id="song-form" class="form">
+      <input type="hidden" id="song-id">
+
+      <label>Title<input type="text" id="song-title" maxlength="120" required placeholder="Untitled"></label>
+
+      <label>Lyrics / notes
+        <div class="rich-toolbar">
+          <button type="button" data-cmd="bold" title="Bold (⌘B)"><strong>B</strong></button>
+          <button type="button" data-cmd="italic" title="Italic (⌘I)"><em>I</em></button>
+        </div>
+        <div id="song-text" class="rich-editor" contenteditable="true" data-placeholder="Verse, chorus, half-lines, anything…"></div>
+      </label>
+
+      <div class="form-row">
+        <label class="flex-1">Genre<input type="text" id="song-genre" list="dl-genre" placeholder="folk, indie, …"></label>
+        <label class="flex-1">Album<input type="text" id="song-album" list="dl-album" placeholder="working title"></label>
+        <label class="flex-1">Mood<input type="text" id="song-mood" list="dl-mood" placeholder="restless, tender, …"></label>
+      </div>
+      <datalist id="dl-genre"></datalist>
+      <datalist id="dl-album"></datalist>
+      <datalist id="dl-mood"></datalist>
+
+      <div class="form-row">
+        <label class="flex-1">Date<input type="date" id="song-date"></label>
+        <label class="flex-1">Tags <span class="hint">(comma-separated)</span><input type="text" id="song-tags" placeholder="capo3, demo, sketch"></label>
+      </div>
+
+      <label>Audio sample
+        <div id="audio-drop" class="upload-area">
+          <input type="file" id="audio-file" accept="audio/*" hidden>
+          <div class="upload-prompt">
+            <span class="upload-icon">♪</span>
+            <span>Drop an audio file or <strong>click to browse</strong></span>
+            <span class="upload-hint">m4a, mp3, wav, ogg, opus — up to ~20 MB</span>
+          </div>
+        </div>
+        <div id="audio-preview" class="audio-preview hidden">
+          <audio id="audio-player" controls preload="metadata"></audio>
+          <div class="audio-meta">
+            <span id="audio-name"></span>
+            <span id="audio-size"></span>
+          </div>
+          <div id="audio-progress" class="audio-progress hidden">
+            <div id="audio-progress-bar" class="audio-progress-bar"></div>
+            <span id="audio-progress-pct">0%</span>
+          </div>
+          <button type="button" id="audio-remove" class="btn-secondary btn-sm">Remove audio</button>
+        </div>
+      </label>
+
+      <div class="form-actions">
+        <button type="button" id="song-delete-btn" class="btn-danger hidden">Delete</button>
+        <button type="submit" class="btn-primary" id="song-save-btn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== Modal: view song ===== -->
+<div id="view-modal" class="modal" data-modal="view-modal">
+  <div class="modal-content modal-large">
+    <button class="modal-close" data-close>×</button>
+    <article class="song-view">
+      <div class="song-view-meta">
+        <span id="v-genre" class="pill genre"></span>
+        <span id="v-album" class="pill album"></span>
+        <span id="v-mood" class="pill mood"></span>
+        <span id="v-date"></span>
+      </div>
+      <h2 id="v-title"></h2>
+      <div id="v-audio" class="song-view-audio hidden">
+        <audio controls preload="metadata"></audio>
+      </div>
+      <div id="v-tags" class="song-view-tags"></div>
+      <div class="ornament-line-soft"></div>
+      <div id="v-text" class="song-view-text"></div>
+    </article>
+    <div class="form-actions">
+      <button id="v-copy-btn" class="btn-secondary">Copy lyrics</button>
+      <button id="v-edit-btn" class="btn-primary">Edit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
