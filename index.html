@@ -24,6 +24,8 @@
       Sign in with Google
     </button>
     <p id="login-error" class="login-error"></p>
+    <div class="login-or">or</div>
+    <button id="readonly-btn" class="btn-readonly">Enter read-only →</button>
   </div>
 </div>
 
@@ -37,9 +39,14 @@
     </div>
     <div class="header-right">
       <span id="sync-status" class="sync-status" title="Sync"></span>
-      <button id="open-new-btn" class="btn-primary">+ New song</button>
+      <button id="logout-btn" class="btn-logout edit-only" title="Sign out">Sign out</button>
+      <button id="open-new-btn" class="btn-primary edit-only">+ New song</button>
     </div>
   </header>
+
+  <div id="readonly-banner" class="readonly-banner hidden">
+    Read-only view — <a href="#" id="readonly-banner-signin">sign in</a> to edit
+  </div>
 
   <div class="controls">
     <input id="search" type="text" placeholder="Search title, lyrics, tags…">
@@ -137,7 +144,7 @@
     </article>
     <div class="form-actions">
       <button id="v-copy-btn" class="btn-secondary">Copy lyrics</button>
-      <button id="v-edit-btn" class="btn-primary">Edit</button>
+      <button id="v-edit-btn" class="btn-primary edit-only">Edit</button>
     </div>
   </div>
 </div>
