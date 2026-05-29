@@ -13,7 +13,8 @@ service cloud.firestore {
     }
 
     match /songs/{songId} {
-      allow read, write: if isAuthorized();
+      allow read: if true;
+      allow write: if isAuthorized();
     }
 
     // Default deny
