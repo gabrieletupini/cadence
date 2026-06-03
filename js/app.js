@@ -3,6 +3,7 @@ import {
   subscribeToSongs, createSong, updateSong, deleteSong,
   listRepoAudio,
 } from './firebase.js';
+import { queueGroupKey, computeQueue } from './queue.js';
 
 // ===== State =====
 let songs = [];
@@ -601,15 +602,11 @@ function setupMiniPlayer() {
 }
 
 function buildQueueFrom(songId) {
-  // If grouping is active and the song belongs to a group, queue = same group.
-  // Otherwise queue = the full filtered list. Only songs with audio.
+  // The queue follows the active grouping; with no grouping, music still plays
+  // genre-by-genre. Only songs with audio are queued. See ./queue.js.
   const visible = filteredSongs().filter(s => s.audio && s.audio.url);
   const song = songs.find(s => s.id === songId);
-  if (!song) return [];
-  if (groupBy !== 'none' && song[groupBy]) {
-    return visible.filter(s => s[groupBy] === song[groupBy]).map(s => s.id);
-  }
-  return visible.map(s => s.id);
+  return computeQueue(visible, groupBy, song);
 }
 
 function playSong(songId) {
@@ -644,9 +641,10 @@ function loadCurrent(autoStart = false) {
 
 function updateContextUI(song) {
   $('mp-title').textContent = song.title || 'Untitled';
+  const key = queueGroupKey(groupBy);
   let ctx;
-  if (groupBy !== 'none' && song[groupBy]) {
-    ctx = `${groupBy}: ${song[groupBy]} · ${player.currentIdx + 1} / ${player.queue.length}`;
+  if (song[key] && player.queue.length > 1) {
+    ctx = `${key}: ${song[key]} · ${player.currentIdx + 1} / ${player.queue.length}`;
   } else if (player.queue.length > 1) {
     ctx = `track ${player.currentIdx + 1} / ${player.queue.length}`;
   } else {
